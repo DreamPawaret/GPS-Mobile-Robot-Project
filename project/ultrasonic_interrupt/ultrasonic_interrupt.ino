@@ -18,19 +18,33 @@ http://arduino.cc/en/Guide/Libraries
 */
 
 #include <TimerOne.h>                                 // Header file for TimerOne library
+#define trigPinC 33                                    // Pin 12 trigger output
+#define echoPinC 2                                     // Pin 2 Echo input
+#define echo_intC 0                                    // Interrupt id for echo pulse
 
-#define trigPin 33                                    // Pin  trigger output
-#define echoPin 2                                     // Pin  Echo input
-#define echo_int 0                                    // Interrupt id for echo pulse
+#define trigPinR 35                 
+#define echoPinR 3                                     
+#define echo_intR 1
+
+#define trigPinL 31                 
+#define echoPinL 18                                     
+#define echo_intL 5
 
 #define TIMER_US 50                                   // 50 uS timer duration 
 #define TICK_COUNTS 4000                              // 200 mS worth of timer ticks
 
-volatile long echo_start = 0;                         // Records start of echo pulse 
-volatile long echo_end = 0;                           // Records end of echo pulse
-volatile long echo_duration = 0;                      // Duration - difference between end and start
-volatile int trigger_time_count = 0;                  // Count down counter to trigger pulse time
-
+volatile long echo_startC = 0;                         // Records start of echo pulse 
+volatile long echo_endC = 0;                           // Records end of echo pulse
+volatile long echo_durationC = 0;                      // Duration - difference between end and start
+volatile long echo_startL = 0;                         // Records start of echo pulse 
+volatile long echo_endL = 0;                           // Records end of echo pulse
+volatile long echo_durationL = 0;                      // Duration - difference between end and start
+volatile long echo_startR = 0;                         // Records start of echo pulse 
+volatile long echo_endR = 0;                           // Records end of echo pulse
+volatile long echo_durationR = 0;                      // Duration - difference between end and start
+volatile int trigger_time_countC = 0;                  // Count down counter to trigger pulse time
+volatile int trigger_time_countL = 0;
+volatile int trigger_time_countR = 0;
 
 // ----------------------------------
 // setup() routine called first.
@@ -39,12 +53,18 @@ volatile int trigger_time_count = 0;                  // Count down counter to t
 // ----------------------------------
 void setup() 
 {
-  pinMode(trigPin, OUTPUT);                           // Trigger pin set to output
-  pinMode(echoPin, INPUT);                            // Echo pin set to input
+  pinMode(trigPinC, OUTPUT);                           // Trigger pin set to output
+  pinMode(echoPinC, INPUT);                            // Echo pin set to input
+  pinMode(trigPinR, OUTPUT);                           // Trigger pin set to output
+  pinMode(echoPinR, INPUT);                            // Echo pin set to input
+  pinMode(trigPinL, OUTPUT);                           // Trigger pin set to output
+  pinMode(echoPinL, INPUT);                            // Echo pin set to input
   
   Timer1.initialize(TIMER_US);                        // Initialise timer 1
   Timer1.attachInterrupt( timerIsr );                 // Attach interrupt to the timer service routine 
-  attachInterrupt(echo_int, echo_interrupt, CHANGE);  // Attach interrupt to the sensor echo input
+  attachInterrupt(echo_intC, echo_interruptC, CHANGE);  // Attach interrupt to the sensor echo input
+  attachInterrupt(echo_intL, echo_interruptL, CHANGE);  // Attach interrupt to the sensor echo input
+  attachInterrupt(echo_intR, echo_interruptR, CHANGE);  // Attach interrupt to the sensor echo input
   Serial.begin (9600);                                // Initialise the serial monitor output
 }
 
@@ -55,7 +75,11 @@ void setup()
 // ----------------------------------
 void loop()
 {
-//    Serial.println(echo_duration / 58);               // Print the distance in centimeters
+//    Serial.print(echo_durationL / 58);               // Print the distance in centimeters
+//    Serial.print("\t");
+//    Serial.print(echo_durationC / 58);               // Print the distance in centimeters
+//    Serial.print("\t");
+//    Serial.println(echo_durationR / 58);               // Print the distance in centimeters
 //    delay(100);                                       // every 100 mS
 }
 
@@ -65,7 +89,9 @@ void loop()
 // --------------------------
 void timerIsr()
 {
-    trigger_pulse();                                 // Schedule the trigger pulses
+    trigger_pulseC();                                 // Schedule the trigger pulses
+    trigger_pulseL();                                 // Schedule the trigger pulses
+    trigger_pulseR();                                 // Schedule the trigger pulses
 }
 
 // --------------------------
@@ -74,13 +100,14 @@ void timerIsr()
 // Minimum trigger pulse width for the HC-SR04 is 10 us. This system
 // delivers a 50 uS pulse.
 // --------------------------
-void trigger_pulse()
+
+void trigger_pulseC()
 {
       static volatile int state = 0;                 // State machine variable
 
-      if (!(--trigger_time_count))                   // Count to 200mS
+      if (!(--trigger_time_countC))                   // Count to 200mS
       {                                              // Time out - Initiate trigger pulse
-         trigger_time_count = TICK_COUNTS;           // Reload
+         trigger_time_countC = TICK_COUNTS;           // Reload
          state = 1;                                  // Changing to state 1 initiates a pulse
       }
     
@@ -90,13 +117,67 @@ void trigger_pulse()
             break;
         
         case 1:                                      // Initiate pulse
-           digitalWrite(trigPin, HIGH);              // Set the trigger output high
+           digitalWrite(trigPinC, HIGH);              // Set the trigger output high
            state = 2;                                // and set state to 2
            break;
         
         case 2:                                      // Complete the pulse
         default:      
-           digitalWrite(trigPin, LOW);               // Set the trigger output low
+           digitalWrite(trigPinC, LOW);               // Set the trigger output low
+           state = 0;                                // and return state to normal 0
+           break;
+     }
+}
+void trigger_pulseL()
+{
+      static volatile int state = 0;                 // State machine variable
+
+      if (!(--trigger_time_countL))                   // Count to 200mS
+      {                                              // Time out - Initiate trigger pulse
+         trigger_time_countL = TICK_COUNTS;           // Reload
+         state = 1;                                  // Changing to state 1 initiates a pulse
+      }
+    
+      switch(state)                                  // State machine handles delivery of trigger pulse
+      {
+        case 0:                                      // Normal state does nothing
+            break;
+        
+        case 1:                                      // Initiate pulse
+           digitalWrite(trigPinL, HIGH);              // Set the trigger output high
+           state = 2;                                // and set state to 2
+           break;
+        
+        case 2:                                      // Complete the pulse
+        default:      
+           digitalWrite(trigPinL, LOW);               // Set the trigger output low
+           state = 0;                                // and return state to normal 0
+           break;
+     }
+}
+void trigger_pulseR()
+{
+      static volatile int state = 0;                 // State machine variable
+
+      if (!(--trigger_time_countR))                   // Count to 200mS
+      {                                              // Time out - Initiate trigger pulse
+         trigger_time_countR = TICK_COUNTS;           // Reload
+         state = 1;                                  // Changing to state 1 initiates a pulse
+      }
+    
+      switch(state)                                  // State machine handles delivery of trigger pulse
+      {
+        case 0:                                      // Normal state does nothing
+            break;
+        
+        case 1:                                      // Initiate pulse
+           digitalWrite(trigPinR, HIGH);              // Set the trigger output high
+           state = 2;                                // and set state to 2
+           break;
+        
+        case 2:                                      // Complete the pulse
+        default:      
+           digitalWrite(trigPinR, LOW);               // Set the trigger output low
            state = 0;                                // and return state to normal 0
            break;
      }
@@ -109,19 +190,64 @@ void trigger_pulse()
 // Note: this routine does not handle the case where the timer
 //       counter overflows which will result in the occassional error.
 // --------------------------
-void echo_interrupt()
+//void echo_interruptL(){
+//  echo_interrupt(echoPinL);
+//}
+//void echo_interruptR(){
+//  echo_interrupt(echoPinR);
+//}
+//void echo_interruptC(){
+//  echo_interrupt(echoPinC);
+//}
+
+void echo_interruptC()
 {
-  switch (digitalRead(echoPin))                     // Test to see if the signal is high or low
+  switch (digitalRead(echoPinC))                     // Test to see if the signal is high or low
   {
     case HIGH:                                      // High so must be the start of the echo pulse
-      echo_end = 0;                                 // Clear the end time
-      echo_start = micros();                        // Save the start time
+      echo_endC = 0;                                 // Clear the end time
+      echo_startC = micros();                        // Save the start time
       break;
       
     case LOW:                                       // Low so must be the end of hte echo pulse
-      echo_end = micros();                          // Save the end time
-      echo_duration = echo_end - echo_start;        // Calculate the pulse duration
-      Serial.println(echo_duration / 58);               // Print the distance in centimeters
+      echo_endC = micros();                          // Save the end time
+      echo_durationC = echo_endC - echo_startC;        // Calculate the pulse duration
+      Serial.print("C : ");
+      Serial.println(echo_durationC / 58);               // Print the distance in centimeters
+      break;
+  }
+}
+void echo_interruptL()
+{
+  switch (digitalRead(echoPinL))                     // Test to see if the signal is high or low
+  {
+    case HIGH:                                      // High so must be the start of the echo pulse
+      echo_endL = 0;                                 // Clear the end time
+      echo_startL = micros();                        // Save the start time
+      break;
+      
+    case LOW:                                       // Low so must be the end of hte echo pulse
+      echo_endL = micros();                          // Save the end time
+      echo_durationL = echo_endL - echo_startL;        // Calculate the pulse duration
+      Serial.print("L : ");
+      Serial.println(echo_durationL / 58);               // Print the distance in centimeters
+      break;
+  }
+}
+void echo_interruptR()
+{
+  switch (digitalRead(echoPinR))                     // Test to see if the signal is high or low
+  {
+    case HIGH:                                      // High so must be the start of the echo pulse
+      echo_endR = 0;                                 // Clear the end time
+      echo_startR = micros();                        // Save the start time
+      break;
+      
+    case LOW:                                       // Low so must be the end of hte echo pulse
+      echo_endR = micros();                          // Save the end time
+      echo_durationR = echo_endR - echo_startR;        // Calculate the pulse duration
+      Serial.print("R : ");
+      Serial.println(echo_durationR / 58);               // Print the distance in centimeters
       break;
   }
 }

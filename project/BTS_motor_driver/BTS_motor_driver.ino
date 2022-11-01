@@ -9,7 +9,9 @@
 #define R_EN_B 24
 #define L_EN_B 25
 
-int PWM = 120;
+int PWM = 90;
+int TIME = 4000;
+int TIME2 = 2000;
 
 
 void forward() {
@@ -26,14 +28,14 @@ void backward() {
 
 void turnRight() {
   Serial.println("Turn Right : ");
-  motorA_Stop();
+  motorA_Backward();
   motorB_Forward();
 }
 
 void turnLeft() {
   Serial.println("Turn Left : ");
   motorA_Forward();
-  motorB_Stop();
+  motorB_Backward();
 }
 
 void brake() {
@@ -93,16 +95,21 @@ void setup() {
 
 void loop() {
 
-  forward();
-  delay(5000);
+  turnLeft();
+  delay(TIME);
   brake();
   delay(2000);
-  backward();
-  delay(5000);
+  turnRight();
+  delay(TIME);
   brake();
   delay(2000);
-//  turnRight(2000);
-//  brake(3000);
-//  turnLeft(2000);
-//  brake(3000);
+  
+//  forward();
+//  delay(TIME2);
+//  brake();
+//  delay(2000);
+//  backward();
+//  delay(TIME2);
+//  brake();
+//  delay(2000);
 }

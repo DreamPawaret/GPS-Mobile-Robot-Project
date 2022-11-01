@@ -5,10 +5,9 @@
 #include <TinyGPS++.h>
 #include <SoftwareSerial.h>
 
-//#define pi 3.14159265358979323846
 //==================== motor A (right)
-#define R_PWM_A 4      //IN1
-#define L_PWM_A 5      //IN2
+#define R_PWM_A 8      //IN1
+#define L_PWM_A 9      //IN2
 #define R_EN_A 22
 #define L_EN_A 23
 //==================== motor B (left)
@@ -17,34 +16,42 @@
 #define R_EN_B 24
 #define L_EN_B 25
 
-#define trigPin 33                                    // Pin  trigger output
-#define echoPin 2                                     // Pin  Echo input
-#define echo_int 0                                    // Interrupt id for echo pulse
+#define trigPinC 33                                    // Pin 12 trigger output
+#define echoPinC 2                                     // Pin 2 Echo input
+#define echo_intC 0                                    // Interrupt id for echo pulse
+
+#define trigPinR 35                 
+#define echoPinR 3                                     
+#define echo_intR 1
+
+#define trigPinL 31                 
+#define echoPinL 18                                     
+#define echo_intL 5
 
 #define TIMER_US 50                                   // 50 uS timer duration 
 #define TICK_COUNTS 4000                              // 200 mS worth of timer ticks
 
-int AVOIDING_TURNRIGHT = 40000;
-int AVOIDING_BRAKE = 80000;
-int AVOIDING_FORWARD = 120000;
-
-volatile long echo_start = 0;                         // Records start of echo pulse 
-volatile long echo_end = 0;                           // Records end of echo pulse
-volatile long echo_duration = 0;                      // Duration - difference between end and start
-volatile int trigger_time_count = 0;                  // Count down counter to trigger pulse time
+volatile long echo_startC = 0;                         // Records start of echo pulse 
+volatile long echo_endC = 0;                           // Records end of echo pulse
+volatile long echo_durationC = 0;                      // Duration - difference between end and start
+volatile long echo_startL = 0;                         // Records start of echo pulse 
+volatile long echo_endL = 0;                           // Records end of echo pulse
+volatile long echo_durationL = 0;                      // Duration - difference between end and start
+volatile long echo_startR = 0;                         // Records start of echo pulse 
+volatile long echo_endR = 0;                           // Records end of echo pulse
+volatile long echo_durationR = 0;                      // Duration - difference between end and start
+volatile int trigger_time_countC = 0;                  // Count down counter to trigger pulse time
+volatile int trigger_time_countL = 0;
+volatile int trigger_time_countR = 0;
 
 int PWMFAST = 180;
-int PWM = 150;
-int PWMSLOW = 90;
+int PWM = 100;
+int PWMSLOW = 80;
 int max_sensor = 50;
 int avoiding_backward = 1000;
 int avoiding_forward = 2000;
 int avoiding_turn = 1500;
 int avoiding_brake = 2000;
-
-// ตัวแปรสำหรับใช้ในฟังก์ชันการทำงานของ ultrasonic
-long uDuration; 
-int uDistance;
 
 static const uint32_t GPSBaud = 9600;
 
@@ -64,40 +71,40 @@ struct robot_car_coordinates{
 };
 
 //============ navigation control ==============
-void forward() {
+void forward(int val) {
   Serial.println("\tForward");
-  motorA_Forward();
-  motorB_Forward();
+  motorA_Forward(val);
+  motorB_Forward(val);
 }
 
-void backward() {
+void backward(int val) {
   Serial.println("\tBackward");
-  motorA_Backward();
-  motorB_Backward();
+  motorA_Backward(val);
+  motorB_Backward(val);
 }
 
-void turnRight() {
+void turnRight(int val) {
   Serial.println("\tTurn Right");
-  motorA_Backward();
-  motorB_Forward();
+  motorA_Backward(val);
+  motorB_Forward(val);
 }
 
-void turnLeft() {
+void turnLeft(int val) {
   Serial.println("\tTurn Left");
-  motorA_Forward();
-  motorB_Backward();
+  motorA_Forward(val);
+  motorB_Backward(val);
 }
 
-void turnRight_Slow() {
+void turnRight_Slow(int val) {
   Serial.println("\tTurn Right Slow");
-  motorA_Backward_Slow();
-  motorB_Forward_Slow();
+  motorA_Backward_Slow(val);
+  motorB_Forward_Slow(val);
 }
 
-void turnLeft_Slow() {
+void turnLeft_Slow(int val) {
   Serial.println("\tTurn Left Slow");
-  motorA_Forward_Slow();
-  motorB_Backward_Slow();
+  motorA_Forward_Slow(val);
+  motorB_Backward_Slow(val);
 }
 
 void brake() {
@@ -106,35 +113,29 @@ void brake() {
   motorB_Stop();
 }
 
-//void stop_motor() {
-//  Serial.print("Motor stop");
-//  motorA_Stop();
-//  motorB_Stop();
-//}
-
 //==================== motor A (right) control
-void motorA_Forward_Fast() {
+void motorA_Forward_Fast(int val) {
   analogWrite(R_PWM_A, 0);
-  analogWrite(L_PWM_A, PWMFAST);
+  analogWrite(L_PWM_A, val);
 }
 
-void motorA_Forward() {
+void motorA_Forward(int val) {
   analogWrite(R_PWM_A, 0);
-  analogWrite(L_PWM_A, PWM);
+  analogWrite(L_PWM_A, val);
 }
 
-void motorA_Backward() {
-  analogWrite(R_PWM_A, PWM);
+void motorA_Backward(int val) {
+  analogWrite(R_PWM_A, val);
   analogWrite(L_PWM_A, 0);
 }
 
-void motorA_Forward_Slow() {
+void motorA_Forward_Slow(int val) {
   analogWrite(R_PWM_A, 0);
-  analogWrite(L_PWM_A, PWMSLOW);
+  analogWrite(L_PWM_A, val);
 }
 
-void motorA_Backward_Slow() {
-  analogWrite(R_PWM_A, PWMSLOW);
+void motorA_Backward_Slow(int val) {
+  analogWrite(R_PWM_A, val);
   analogWrite(L_PWM_A, 0);
 }
 
@@ -144,28 +145,28 @@ void motorA_Stop() {
 }
 
 //==================== motor B (left) control
-void motorB_Forward_Fast() {
+void motorB_Forward_Fast(int val) {
   analogWrite(R_PWM_B, 0);
-  analogWrite(L_PWM_B, PWMFAST);
+  analogWrite(L_PWM_B, val);
 }
 
-void motorB_Forward() {
+void motorB_Forward(int val) {
   analogWrite(R_PWM_B, 0);
-  analogWrite(L_PWM_B, PWM);
+  analogWrite(L_PWM_B, val);
 }
 
-void motorB_Backward() {
-  analogWrite(R_PWM_B, PWM);
+void motorB_Backward(int val) {
+  analogWrite(R_PWM_B, val);
   analogWrite(L_PWM_B, 0);
 }
 
-void motorB_Forward_Slow() {
+void motorB_Forward_Slow(int val) {
   analogWrite(R_PWM_B, 0);
-  analogWrite(L_PWM_B, PWMSLOW);
+  analogWrite(L_PWM_B, val);
 }
 
-void motorB_Backward_Slow() {
-  analogWrite(R_PWM_B, PWMSLOW);
+void motorB_Backward_Slow(int val) {
+  analogWrite(R_PWM_B, val);
   analogWrite(L_PWM_B, 0);
 }
 
@@ -185,7 +186,7 @@ double toRadians( double degree){
     return (one_deg * degree);
 }
 
-//มุมที่รถหันหน้าไป เทียบกับทิศเหนือ(azimuth ของรถ)
+//มุมของรถเทียบกับทิศเหนือ(azimuth ของรถ)
 int getCompassHeading(){
     int x, y, z;
     int robot_car_heading;
@@ -226,7 +227,7 @@ double computeDistance(double waypoint_lat, double waypoint_lon, double robot_ca
     return ans; //distance between two point (m)
 }
 
-//=======================หามุม azimuth ของพิกัดปลายทาง ===========================
+//======================= หามุมที่รถต้องหันไปยังพิกัดเป้าหมาย ===========================
 double computeAngle(double lat1, double lon1, double lat2, double lon2, int robot_car_heading){
     lat2 = toRadians(lat2);
     lon2 = toRadians(lon2);
@@ -235,7 +236,7 @@ double computeAngle(double lat1, double lon1, double lat2, double lon2, int robo
     double dlat = lat2 - lat1;
     double dlon = lon2 - lon1;
 
-    double azimuth_angle = atan2( sin(dlon)*cos(lat2), (cos(lat1) * sin(lat2)) - (sin(lat1) * cos(lat2) * cos(dlon)));
+    double azimuth_angle = atan2( sin(dlon)*cos(lat2), (cos(lat1) * sin(lat2)) - (sin(lat1) * cos(lat2) * cos(dlon)));    // azimuth ของพิกัดเป้าหมาย
     int waypoint_angle = toDegree(azimuth_angle);
 
 //    Serial.print(" azimuth : ");
@@ -253,16 +254,18 @@ double computeAngle(double lat1, double lon1, double lat2, double lon2, int robo
 
 void timerIsr()
 {
-    trigger_pulse();                                 // Schedule the trigger pulses
+    trigger_pulseC();                                 // Schedule the trigger pulses
+    trigger_pulseL();                                 // Schedule the trigger pulses
+    trigger_pulseR();                                 // Schedule the trigger pulses
 }
 
-void trigger_pulse()
+void trigger_pulseC()
 {
       static volatile int state = 0;                 // State machine variable
 
-      if (!(--trigger_time_count))                   // Count to 200mS
+      if (!(--trigger_time_countC))                   // Count to 200mS
       {                                              // Time out - Initiate trigger pulse
-         trigger_time_count = TICK_COUNTS;           // Reload
+         trigger_time_countC = TICK_COUNTS;           // Reload
          state = 1;                                  // Changing to state 1 initiates a pulse
       }
     
@@ -272,42 +275,151 @@ void trigger_pulse()
             break;
         
         case 1:                                      // Initiate pulse
-           digitalWrite(trigPin, HIGH);              // Set the trigger output high
+           digitalWrite(trigPinC, HIGH);              // Set the trigger output high
            state = 2;                                // and set state to 2
            break;
         
         case 2:                                      // Complete the pulse
         default:      
-           digitalWrite(trigPin, LOW);               // Set the trigger output low
+           digitalWrite(trigPinC, LOW);               // Set the trigger output low
+           state = 0;                                // and return state to normal 0
+           break;
+     }
+}
+void trigger_pulseL()
+{
+      static volatile int state = 0;                 // State machine variable
+
+      if (!(--trigger_time_countL))                   // Count to 200mS
+      {                                              // Time out - Initiate trigger pulse
+         trigger_time_countL = TICK_COUNTS;           // Reload
+         state = 1;                                  // Changing to state 1 initiates a pulse
+      }
+    
+      switch(state)                                  // State machine handles delivery of trigger pulse
+      {
+        case 0:                                      // Normal state does nothing
+            break;
+        
+        case 1:                                      // Initiate pulse
+           digitalWrite(trigPinL, HIGH);              // Set the trigger output high
+           state = 2;                                // and set state to 2
+           break;
+        
+        case 2:                                      // Complete the pulse
+        default:      
+           digitalWrite(trigPinL, LOW);               // Set the trigger output low
+           state = 0;                                // and return state to normal 0
+           break;
+     }
+}
+void trigger_pulseR()
+{
+      static volatile int state = 0;                 // State machine variable
+
+      if (!(--trigger_time_countR))                   // Count to 200mS
+      {                                              // Time out - Initiate trigger pulse
+         trigger_time_countR = TICK_COUNTS;           // Reload
+         state = 1;                                  // Changing to state 1 initiates a pulse
+      }
+    
+      switch(state)                                  // State machine handles delivery of trigger pulse
+      {
+        case 0:                                      // Normal state does nothing
+            break;
+        
+        case 1:                                      // Initiate pulse
+           digitalWrite(trigPinR, HIGH);              // Set the trigger output high
+           state = 2;                                // and set state to 2
+           break;
+        
+        case 2:                                      // Complete the pulse
+        default:      
+           digitalWrite(trigPinR, LOW);               // Set the trigger output low
            state = 0;                                // and return state to normal 0
            break;
      }
 }
 
-void echo_interrupt()
+void echo_interruptC()
 {
-  switch (digitalRead(echoPin))                     // Test to see if the signal is high or low
+  switch (digitalRead(echoPinC))                     // Test to see if the signal is high or low
   {
     case HIGH:                                      // High so must be the start of the echo pulse
-      echo_end = 0;                                 // Clear the end time
-      echo_start = micros();                        // Save the start time
+      echo_endC = 0;                                 // Clear the end time
+      echo_startC = micros();                        // Save the start time
       break;
       
     case LOW:                                       // Low so must be the end of hte echo pulse
-      echo_end = micros();                          // Save the end time
-      echo_duration = echo_end - echo_start;        // Calculate the pulse duration
-      Serial.println(echo_duration / 58);               // Print the distance in centimeters
+      echo_endC = micros();                          // Save the end time
+      echo_durationC = echo_endC - echo_startC;        // Calculate the pulse duration
+      Serial.print("C : ");
+      Serial.println(echo_durationC / 58);               // Print the distance in centimeters
+      break;
+  }
+}
+void echo_interruptL()
+{
+  switch (digitalRead(echoPinL))                     // Test to see if the signal is high or low
+  {
+    case HIGH:                                      // High so must be the start of the echo pulse
+      echo_endL = 0;                                 // Clear the end time
+      echo_startL = micros();                        // Save the start time
+      break;
+      
+    case LOW:                                       // Low so must be the end of hte echo pulse
+      echo_endL = micros();                          // Save the end time
+      echo_durationL = echo_endL - echo_startL;        // Calculate the pulse duration
+      Serial.print("L : ");
+      Serial.println(echo_durationL / 58);               // Print the distance in centimeters
+      break;
+  }
+}
+void echo_interruptR()
+{
+  switch (digitalRead(echoPinR))                     // Test to see if the signal is high or low
+  {
+    case HIGH:                                      // High so must be the start of the echo pulse
+      echo_endR = 0;                                 // Clear the end time
+      echo_startR = micros();                        // Save the start time
+      break;
+      
+    case LOW:                                       // Low so must be the end of hte echo pulse
+      echo_endR = micros();                          // Save the end time
+      echo_durationR = echo_endR - echo_startR;        // Calculate the pulse duration
+      Serial.print("R : ");
+      Serial.println(echo_durationR / 58);               // Print the distance in centimeters
       break;
   }
 }
 
-void avoiding(){
+void avoidingL(){
+  backward(PWM);
+  delay(1000);
   brake();
+  delay(1000);
+  turnLeft(PWM);
+  delay(1500);
+  brake();
+  delay(1000);
+  forward(PWM);
   delay(2000);
-  turnRight();
+  brake();
+  delay(1000);
+}
+void avoidingR(){
+  backward(PWM);
+  delay(1000);
+  brake();
+  delay(1000);
+  turnRight(PWM);
+  delay(1500);
+  brake();
+  delay(1000);
+  forward(PWM);
   delay(2000);
-  forward();
-  delay(2000);
+  brake();
+  delay(1000);
 }
 
 void setup() {
@@ -325,12 +437,18 @@ void setup() {
   digitalWrite(R_EN_B, HIGH);
   digitalWrite(L_EN_B, HIGH);
 
-  pinMode(trigPin, OUTPUT);                           // Trigger pin set to output
-  pinMode(echoPin, INPUT);                            // Echo pin set to input
+  pinMode(trigPinC, OUTPUT);                           // Trigger pin set to output
+  pinMode(echoPinC, INPUT);                            // Echo pin set to input
+  pinMode(trigPinR, OUTPUT);                           // Trigger pin set to output
+  pinMode(echoPinR, INPUT);                            // Echo pin set to input
+  pinMode(trigPinL, OUTPUT);                           // Trigger pin set to output
+  pinMode(echoPinL, INPUT);                            // Echo pin set to input
   
   Timer1.initialize(TIMER_US);                        // Initialise timer 1
   Timer1.attachInterrupt( timerIsr );                 // Attach interrupt to the timer service routine 
-  attachInterrupt(echo_int, echo_interrupt, CHANGE);  // Attach interrupt to the sensor echo input
+//  attachInterrupt(echo_intC, echo_interruptC, CHANGE);  // Attach interrupt to the sensor echo input
+//  attachInterrupt(echo_intL, echo_interruptL, CHANGE);  // Attach interrupt to the sensor echo input
+//  attachInterrupt(echo_intR, echo_interruptR, CHANGE);  // Attach interrupt to the sensor echo input
 
   Wire.begin();
   Serial.begin(9600);
@@ -345,18 +463,21 @@ void loop() {
   
 //  waypoint.latitude = 7.006595;
 //  waypoint.longitude = 100.502193;
-  robot_car.latitude = 7.007057;
-  robot_car.longitude = 100.502220;
+//  robot_car.latitude = 7.007057;
+//  robot_car.longitude = 100.502220;
   
-  if((echo_duration / 58) <= 50){
-      avoiding();
-  }
-  else{
-      if ( Serial3.available() > 0 ){
+//  if((echo_durationL / 58) <= 40){
+//      avoidingR();
+//  }
+//  else if((echo_durationC / 58) <= 40 || (echo_durationR / 58) <= 50){
+//      avoidingL();
+//  }
+//  else{
+      if ( Serial3.available() > 0 && Serial2.available() > 0 ){
     
       //data from the GPS
-//      gps.encode(Serial2.read());
-//        if (gps.location.isUpdated()){
+      gps.encode(Serial2.read());
+        if (gps.location.isUpdated()){
             float val1 = Serial3.parseFloat();
             float val2 = Serial3.parseFloat();
 
@@ -392,8 +513,8 @@ void loop() {
               
             } 
             
-//            robot_car.latitude = gps.location.lat();
-//            robot_car.longitude = gps.location.lng();
+            robot_car.latitude = gps.location.lat();
+            robot_car.longitude = gps.location.lng();
             
             
             Serial.print("lat: ");
@@ -424,29 +545,29 @@ void loop() {
                   Serial.println(heading_error);
                    
                   if(heading_error < -45 && heading_error >= -180){
-                    turnLeft();
+                    turnLeft(PWM);
                   }
                   else if(heading_error < -10 && heading_error >= -45){
-                    turnLeft_Slow();
+                    turnLeft_Slow(PWMSLOW);
                   }
                   else if(heading_error > 10 && heading_error <= 45){
-                    turnRight_Slow();
+                    turnRight_Slow(PWMSLOW);
                   }
                   else if(heading_error > 45 && heading_error <= 180){
-                    turnRight();
+                    turnRight(PWM);
                   }
                   else {
-                    forward();
+                    forward(PWM);
                   }
                                 
             }
             else {
               brake(); 
             }  
-//        }
+        }//gps local update
 
     }
     
-  }
+//  } //ultrasonic
     
 }

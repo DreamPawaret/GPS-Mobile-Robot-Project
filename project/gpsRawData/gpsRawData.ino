@@ -8,6 +8,7 @@
 
 // The serial connection to the GPS module
 //SoftwareSerial ss(4, 3);
+//
 
 void setup(){
  Serial.begin(9600);
