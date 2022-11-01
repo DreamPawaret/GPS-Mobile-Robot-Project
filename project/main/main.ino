@@ -16,16 +16,16 @@
 #define R_EN_B 24
 #define L_EN_B 25
 
-#define trigPinC 33                                    // Pin 12 trigger output
+#define trigPinC 33                                    // Pin 33 trigger output
 #define echoPinC 2                                     // Pin 2 Echo input
 #define echo_intC 0                                    // Interrupt id for echo pulse
 
-#define trigPinR 35                 
-#define echoPinR 3                                     
+#define trigPinR 35                                    // Pin 35 trigger output
+#define echoPinR 3                                     // Pin 3 Echo input
 #define echo_intR 1
 
-#define trigPinL 31                 
-#define echoPinL 18                                     
+#define trigPinL 31                                     // Pin 31 trigger output
+#define echoPinL 18                                     // Pin 18 Echo input
 #define echo_intL 5
 
 #define TIMER_US 50                                   // 50 uS timer duration 
@@ -44,14 +44,14 @@ volatile int trigger_time_countC = 0;                  // Count down counter to 
 volatile int trigger_time_countL = 0;
 volatile int trigger_time_countR = 0;
 
-int PWMFAST = 180;
+int PWMFAST = 180;                                      //PWM ของ motor
 int PWM = 100;
 int PWMSLOW = 80;
-int max_sensor = 50;
-int avoiding_backward = 1000;
-int avoiding_forward = 2000;
-int avoiding_turn = 1500;
-int avoiding_brake = 2000;
+int max_sensor = 50;                                    // ระยะที่ตรวจจับได้ว่ามีสิ่งกีดขวาง
+int avoiding_backward = 1000;                           // ระยะเวลาในการทำงานให้หลบสิ่งกีดขวาง
+int avoiding_forward = 2000;                            // ระยะเวลาในการทำงานให้หลบสิ่งกีดขวาง
+int avoiding_turn = 1500;                               // ระยะเวลาในการทำงานให้หลบสิ่งกีดขวาง
+int avoiding_brake = 2000;                              // ระยะเวลาในการทำงานให้หลบสิ่งกีดขวาง
 
 static const uint32_t GPSBaud = 9600;
 
@@ -70,7 +70,7 @@ struct robot_car_coordinates{
   float longitude;
 };
 
-//============ navigation control ==============
+//============ navigation control ===========================
 void forward(int val) {
   Serial.println("\tForward");
   motorA_Forward(val);
@@ -113,7 +113,7 @@ void brake() {
   motorB_Stop();
 }
 
-//==================== motor A (right) control
+//==================== motor A (right) control====================
 void motorA_Forward_Fast(int val) {
   analogWrite(R_PWM_A, 0);
   analogWrite(L_PWM_A, val);
@@ -144,7 +144,7 @@ void motorA_Stop() {
   analogWrite(L_PWM_A, 0);
 }
 
-//==================== motor B (left) control
+//==================== motor B (left) control========================
 void motorB_Forward_Fast(int val) {
   analogWrite(R_PWM_B, 0);
   analogWrite(L_PWM_B, val);
@@ -186,7 +186,7 @@ double toRadians( double degree){
     return (one_deg * degree);
 }
 
-//มุมของรถเทียบกับทิศเหนือ(azimuth ของรถ)
+//==========================มุมของรถเทียบกับทิศเหนือ(azimuth ของรถ)============================
 int getCompassHeading(){
     int x, y, z;
     int robot_car_heading;
@@ -201,7 +201,7 @@ int getCompassHeading(){
     return robot_car_heading;  
 }
 
-//คำนวณระยะทางระหว่าง 2 จุด
+//====================================คำนวณระยะทางระหว่าง 2 จุด==================================
 double computeDistance(double waypoint_lat, double waypoint_lon, double robot_car_lat, double robot_car_lon) {
     double lat2 = toRadians(waypoint_lat);
     double lon2 = toRadians(waypoint_lon);
@@ -393,6 +393,7 @@ void echo_interruptR()
   }
 }
 
+//==============เลี้ยวหลบไปทางซ้าย=================
 void avoidingL(){
   backward(PWM);
   delay(1000);
@@ -407,6 +408,8 @@ void avoidingL(){
   brake();
   delay(1000);
 }
+
+//==============เลี้ยวหลบไปทางขวา=================
 void avoidingR(){
   backward(PWM);
   delay(1000);
@@ -444,11 +447,11 @@ void setup() {
   pinMode(trigPinL, OUTPUT);                           // Trigger pin set to output
   pinMode(echoPinL, INPUT);                            // Echo pin set to input
   
-  Timer1.initialize(TIMER_US);                        // Initialise timer 1
-  Timer1.attachInterrupt( timerIsr );                 // Attach interrupt to the timer service routine 
-//  attachInterrupt(echo_intC, echo_interruptC, CHANGE);  // Attach interrupt to the sensor echo input
-//  attachInterrupt(echo_intL, echo_interruptL, CHANGE);  // Attach interrupt to the sensor echo input
-//  attachInterrupt(echo_intR, echo_interruptR, CHANGE);  // Attach interrupt to the sensor echo input
+  Timer1.initialize(TIMER_US);                                // Initialise timer 1
+  Timer1.attachInterrupt( timerIsr );                         // Attach interrupt to the timer service routine 
+  attachInterrupt(echo_intC, echo_interruptC, CHANGE);        // Attach interrupt to the center sensor echo input
+  attachInterrupt(echo_intL, echo_interruptL, CHANGE);        // Attach interrupt to the left sensor echo input
+  attachInterrupt(echo_intR, echo_interruptR, CHANGE);        // Attach interrupt to the right sensor echo input
 
   Wire.begin();
   Serial.begin(9600);
@@ -458,34 +461,31 @@ void setup() {
 }
 
 void loop() {  
-  struct robot_car_coordinates robot_car;
-  struct t_waypoint waypoint;
-  
+  struct robot_car_coordinates robot_car;                   // ตัวแปรสำหรับเก็บค่าพิกัดปัจจุบันของหุ่นยนต์
+  struct t_waypoint waypoint;                               // ตัวแปรสำหรับเก็บค่าพิกัดเป้าหมาย
+
+//  พิกัดข้างล่างนี้ ใช้สำหรับการทดสอบ
 //  waypoint.latitude = 7.006595;
 //  waypoint.longitude = 100.502193;
 //  robot_car.latitude = 7.007057;
 //  robot_car.longitude = 100.502220;
-  
-//  if((echo_durationL / 58) <= 40){
-//      avoidingR();
-//  }
-//  else if((echo_durationC / 58) <= 40 || (echo_durationR / 58) <= 50){
-//      avoidingL();
-//  }
-//  else{
+
+// เช็คสิ่งกีดขวาง
+  if((echo_durationL / 58) <= 50){
+      avoidingR();
+  }
+  else if((echo_durationC / 58) <= 50 || (echo_durationR / 58) <= 50){
+      avoidingL();
+  }
+  else{
       if ( Serial3.available() > 0 && Serial2.available() > 0 ){
     
       //data from the GPS
-      gps.encode(Serial2.read());
-        if (gps.location.isUpdated()){
-            float val1 = Serial3.parseFloat();
-            float val2 = Serial3.parseFloat();
-
-//            Serial.print(val1);
-//            Serial.print(" : ");
-//            Serial.print(val2);
-//            Serial.print("\t");
-            
+      gps.encode(Serial2.read());                                   //อ่านและแปลงค่าจาก gps
+        if (gps.location.isUpdated()){                              // gps มีการอัพเดทค่าพิกัด
+            float val1 = Serial3.parseFloat();                      // รับค่าจาก node mcu                   
+            float val2 = Serial3.parseFloat();                      // รับค่าจาก node mcu
+           
             float receivedLat;
             float receivedLon;
             
@@ -513,8 +513,8 @@ void loop() {
               
             } 
             
-            robot_car.latitude = gps.location.lat();
-            robot_car.longitude = gps.location.lng();
+            robot_car.latitude = gps.location.lat();                // เก็บค่าละติจูด
+            robot_car.longitude = gps.location.lng();               // เก็บค่าลองจิจูด
             
             
             Serial.print("lat: ");
@@ -529,13 +529,17 @@ void loop() {
             Serial.print(robot_car.longitude, 6);
             Serial.print(" ");
             
-            int robot_car_heading = getCompassHeading();
+            int robot_car_heading = getCompassHeading();           // คำนวณทิศทางของหุ่นว่าตอนนี้หันไปทางไหน เป็นมุมเทียบกับทิศเหนือ
             Serial.print("heading: ");
             Serial.print(robot_car_heading);
             Serial.print(" ");
 
+            // คำนวณระยะทางระหว่างหุ่นกับพิกัดเป้าหมาย
             double distance = computeDistance(waypoint.latitude, waypoint.longitude, robot_car.latitude, robot_car.longitude);
-            double heading_error = computeAngle(robot_car.latitude, robot_car.longitude, waypoint.latitude, waypoint.longitude, robot_car_heading);  
+            
+            // คำนวณมุมที่หุ่นทำกับพิกัดเป้าหมาย
+            double heading_error = computeAngle(robot_car.latitude, robot_car.longitude, waypoint.latitude, waypoint.longitude, robot_car_heading); 
+             
             if(distance > 3){
                   robot_car_heading = getCompassHeading();
                   Serial.print("\tHeading : ");
@@ -568,6 +572,6 @@ void loop() {
 
     }
     
-//  } //ultrasonic
+  } //ultrasonic
     
 }
